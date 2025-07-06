@@ -1,0 +1,62 @@
+LEFT                mouse 1
+MIDDLE              mouse 3
+RIGHT               mouse 2
+
+BACK                mouse 4
+FORWARD             mouse 5
+
+SCROLL_LEFT        mouse scroll vertical, use teensy usb_mouse_move
+SCROLL_RIGHT       mouse scroll vertical, use teensy usb_mouse_move
+
+LEFT_FAR_EDGE      copy
+LEFT_NEAR_EDGE     paste
+RIGHT_EDGE         modifier key (shift register, G-shift)
+
+LEFT_TIP           enter
+RIGHT_TIP          
+
+LEFT_PUSH_TRIGGER
+RIGHT_PUSH_TRIGGER
+LEFT_PULL_TRIGGER   backspace
+RIGHT_PULL_TRIGGER  delete
+
+FAR_WING
+MID_WING
+NEAR_WING
+
+FAR_DPI
+MID_DPI
+NEAR_DPI            printscreen
+
+
+GRID_TOP_LEFT       enter(?)
+GRID_LEFT
+GRID_BOT_LEFT
+GRID_BOT
+GRID_BOT_RIGHT
+GRID_RIGHT
+GRID_FAR_TOP
+GRID_FAR_BOT
+
+
+macros and shortcuts by pressing RIGHT_EDGE(modifier) button
+---------------
+m1 -> auto m1
+m2 -> Kando
+m4 -> undo
+m5 -> redo
+
+copy -> cut
+paste -> clipboard
+printscreen -> selective printscreen
+
+backspace -> delete
+enter -> shift+enter
+space -> tab
+
+prev/next tab -> prev/next window desktop
+
+
+tilt macros
+---------------
+
