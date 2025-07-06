@@ -1,0 +1,13 @@
+SENSOR
+---------
+MOT      16
+SCLK     13
+MOSI     11
+MISO     12
+NCS      10
+NRESET   17
+VDD      3v
+VDDIO    3v
+GRD     GRD
+---------
+
