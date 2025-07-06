@@ -1,6 +1,6 @@
-#my module's "proper startup banner" from aliexpress, as compared to this https://github.com/mrjohnk/PMW3389DM/blob/master/proper%20startup%20banner.txt
+//my module's "proper startup banner" from aliexpress, as compared to this https://github.com/mrjohnk/PMW3389DM/blob/master/proper%20startup%20banner.txt
 
-#which I changed from trip's code 
+//which I changed from trip's code 
 return (pid == 0x42 && iv_pid == 0xBD && SROM_ver == 0x04);
 into 
 return (pid == 0x47 && iv_pid == 0xB8 && SROM_ver == 0xE8);
