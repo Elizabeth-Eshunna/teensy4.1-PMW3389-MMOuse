@@ -1,10 +1,10 @@
 /*
-    Teensy4_mouse.ino - minimal firmware for an 8khz mouse written in arduino.
-    Requires a teensy4 MCU and a mouse with the PMW3360 sensor.
-    Use the Serial + Keyboard + Mouse + Joystick USB type.
-    (part of the code inspired by https://github.com/SunjunKim/PMW3360 and https://github.com/mrjohnk/PMW3360DM-T2QU)
+Work In Progress
 
-    Copyright (C) 2021  Herbert Trip
+    Teensy4_mouse.ino - minimal firmware for an 8khz mouse written in arduino.
+    Requires a teensy4.1 MCU and a mouse with the PMW3389 sensor.
+    Use the Serial + Keyboard + Mouse + Joystick USB type.
+    (part of the code inspired by https://github.com/SunjunKim/PMW3360, https://github.com/mrjohnk/PMW3360DM-T2QU and https://github.com/Trip93/teensy4_mouse)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,12 +18,10 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-    Contact email: hbtrip93@gmail.com
 */
 
 #include "teensy4_mouse.h"
-#include "srom_3360_0x04.h"
+#include "srom_3389.h"
 #include <SPI.h>
 
 // PMW3360 datasheet mentions a max of 2MHz for the SPI clock however up to 36Mhz seems to work fine for me
@@ -145,7 +143,7 @@ uint32_t check_signature()
 
   SPI.endTransaction();
 
-  return (pid == 0x42 && iv_pid == 0xBD && SROM_ver == 0x04); // signature for SROM 0x04
+  return (pid == 0x47 && iv_pid == 0xB8 && SROM_ver == 0xE8); // signature for SROM 0x04
 }
 
 // Sets the CPI/DPI value of the PMW3360
