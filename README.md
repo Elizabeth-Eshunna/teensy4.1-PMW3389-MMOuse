@@ -1,5 +1,4 @@
-# teensy4_mouse
-Arduino code for a high speed 8000Hz wired mouse using a teensy 4 MCU. 
+Teeensyduino sketch for an MMO wired mouse using a teensy 4.1 MCU and PMW3389. 
 This code is inspired by https://github.com/mrjohnk/PMW3360DM-T2QU, https://github.com/SunjunKim/PMW3360_Arduino and https://github.com/Trip93/teensy4_mouse
 
 
