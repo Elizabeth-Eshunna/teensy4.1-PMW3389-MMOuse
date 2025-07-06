@@ -44,8 +44,11 @@ macros and shortcuts by pressing RIGHT_EDGE(modifier) button
 ---------------
 m1 -> auto m1
 m2 -> Kando
+m3 -> 
+m3scroll -> faster scroll
 m4 -> undo
 m5 -> redo
+
 
 copy -> cut
 paste -> clipboard
