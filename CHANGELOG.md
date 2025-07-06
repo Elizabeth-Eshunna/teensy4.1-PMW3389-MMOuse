@@ -1,3 +1,0 @@
-- Added adjustable polling rate support during runtime
-- Added 16 bit x and y support while remaining compatible with 8 bit numbers (please see teensy4_cores_patch to change the teensy cores files)
-- Improved naming conventions and added definitions for the magic numbers
