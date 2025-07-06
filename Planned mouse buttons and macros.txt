@@ -1,9 +1,9 @@
-LEFT                mouse 1
-MIDDLE              mouse 3
-RIGHT               mouse 2
+LEFT               mouse 1
+MIDDLE             mouse 3
+RIGHT              mouse 2
 
-BACK                mouse 4
-FORWARD             mouse 5
+BACK               mouse 4
+FORWARD            mouse 5
 
 SCROLL_LEFT        mouse scroll vertical, use teensy usb_mouse_move
 SCROLL_RIGHT       mouse scroll vertical, use teensy usb_mouse_move
