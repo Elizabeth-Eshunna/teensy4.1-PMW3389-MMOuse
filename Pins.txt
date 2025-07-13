@@ -6,12 +6,28 @@ MOSI     11
 MISO     12
 NCS      10
 NRESET   17
-VDD      3v
-VDDIO    3v
-GRD     GRD
+VDD      3v3
+VDDIO    3v3
+GND     GND
+---------
+
+MPU9250(6500?)
+---------
+VCC      3v3
+GND      GND
+SCL      28
+SDA      27
+ADD      1
+INT      2
+NCS      0
 ---------
 
 
+I²C (DRV2605L (haptic motor), MPU 9250(gyro), SSD1306 0.96 OLED screen)
+---------
+SCL      19
+SDA      18
+---------
     VDD: this should be a 2.4V to 3.6V power source.
     GND: ground.
     VDDI: digital I/O supply voltage. This should be between 1.71V and VDD.
@@ -26,8 +42,3 @@ GRD     GRD
 
 
 
-I²C (DRV2605L (haptic motor), MPU 9250(gyro), SSD1306 0.96 OLED screen)
----------
-SCL      19
-SDA      18
----------
