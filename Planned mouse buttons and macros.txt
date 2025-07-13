@@ -59,8 +59,13 @@ enter -> shift+enter
 space -> tab
 
 prev/next tab -> prev/next window desktop
-
+---------------
 
 tilt macros
 ---------------
+---------------
 
+planned macros:
+change window
+change desktop
+change profile to game/generic keybinds (maybe use gamepad buttons?(flight sim sticks))
