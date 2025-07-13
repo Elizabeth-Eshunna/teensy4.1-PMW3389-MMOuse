@@ -11,3 +11,9 @@ VDDIO    3v
 GRD     GRD
 ---------
 
+
+I²C (DRV2605L (haptic motor), MPU 9250(gyro), SSD1306 0.96 OLED screen)
+---------
+SCL      19
+SDA      18
+---------
