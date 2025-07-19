@@ -1,4 +1,4 @@
-SENSOR
+SENSOR(0x68)
 ---------
 MOT      16
 SCLK     13
