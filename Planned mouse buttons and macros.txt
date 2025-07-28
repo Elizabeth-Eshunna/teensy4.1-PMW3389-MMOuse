@@ -5,8 +5,8 @@ RIGHT              mouse 2
 BACK               mouse 4
 FORWARD            mouse 5
 
-SCROLL_LEFT        mouse scroll vertical, use teensy usb_mouse_move
-SCROLL_RIGHT       mouse scroll vertical, use teensy usb_mouse_move
+SCROLL_LEFT        mouse scroll horizontal, use teensy usb_mouse_move
+SCROLL_RIGHT       mouse scroll horizontal, use teensy usb_mouse_move
 
 LEFT_FAR_EDGE      copy
 LEFT_NEAR_EDGE     paste
