@@ -23,6 +23,7 @@ Work In Progress
 #include "teensy4_mouse.h"
 #include "srom_3389.h"
 #include <SPI.h>
+#include <Bounce2.h>
 
 // PMW3360 datasheet mentions a max of 2MHz for the SPI clock however up to 36Mhz seems to work fine for me
 // Very small benefit increasing this speed beyond 2MHz to decrease transaction times sensor FPS is still limited to 12000 FPS
@@ -35,6 +36,34 @@ Work In Progress
 
 // 1 write to burst register -> 35 uS wait time -> 12 reads from burst register + 5 uS margin (at 2Mhz this is 92 uS at 36Mhz this is 43 uS)
 #define BURST_READ_TIME (TSRAD_MOTION_BURST + 5) + 8 * (1000000.0 / (SPI_BUS_SPEED)) * (12 + 1)
+
+
+const int NUM_LAYERS = 2;
+const int NUM_BUTTONS = 14; // Corrected to match your defined buttons,
+const int LAYER_SWITCH_PIN = 6; // Pin for RIGHT_EDGE (the layer key)
+
+Bounce layerSwitchButton = Bounce();
+Bounce button[NUM_BUTTONS];
+int currentLayer = 0;
+
+const int buttonPins[NUM_BUTTONS] = {
+ 
+  0, // LEFT_FAR_EDGE
+  1, // LEFT_NEAR_EDGE
+  2, // LEFT_TIP
+  3, // RIGHT_TIP
+  4, // LEFT_PUSH_TRIGGER
+  5, // RIGHT_PUSH_TRIGGER
+  
+  33, //M1_NO
+  34, //M1_NC
+  35, //M2_NO
+  36, //M2_NC
+  37, //M3_NO
+  38, //M3_NC
+  39, //M4_NO
+  40, //M5_NC
+};
 
 static elapsedMicros burst_timer  = 0;
 static elapsedMicros polling_rate = 0;
@@ -50,6 +79,8 @@ static uint16_t cpi[6]                  = {400, 800, 1600, 2000, 3200, 6400};
 static uint8_t  cpi_index               = 5;
 static bool     cpi_pressed             = false;
 static uint16_t set_rate                = 125;
+
+
 // Use the formula 1000000 / set_rate = polling rate to get the polling rate
 // Note: this timer is seperate from the USB timer but it effectivly limits the polling rate
 // Note: at lower polling rates (1000Hz and lower) it is recommended to use 16 bit x and y values to not hit the 8 bit limit
@@ -234,6 +265,62 @@ void update_buttons()
     if (!digitalReadFast(MC_NO) && digitalReadFast(MC_NC)) buttons |= 0b00100000;
     if (!digitalReadFast(MC_NC) && digitalReadFast(MC_NO)) buttons &= 0b11011111;
   }
+
+layerSwitchButton.update();
+  for (int i = 0; i < NUM_BUTTONS; i++) {
+    button[i].update();
+  }
+
+ if (layerSwitchButton.read() == LOW) {
+    currentLayer = 1;
+    Serial.print("Switched to Layer: "); // Optional debug message
+    Serial.println(currentLayer);
+  } else {
+    currentLayer = 0;
+    Serial.print("Switched to Layer: "); // Optional debug message
+    Serial.println(currentLayer);
+  }
+
+  for (int i = 0; i < NUM_BUTTONS; i++) {
+    switch (i) {
+
+      // --- Stateful "Hold-Down" Buttons ---
+      case LEFT_FAR_EDGE: // This button has a Layer 1 override
+        if (button[i].fell()) { // On PRESS
+          // Check for the override layer first
+          if (currentLayer == 1) { // <-- CHANGE HERE
+            Keyboard.press(MODIFIERKEY_GUI);
+            Keyboard.press('v');
+          } else { // Fallback to Layer 0 action
+            Keyboard.press(MODIFIERKEY_CTRL);
+            Keyboard.press('v');
+          }
+        } else if (button[i].rose()) { // On RELEASE
+          // Same logic for release
+          if (currentLayer == 1) { // <-- CHANGE HERE
+            Keyboard.release('v');
+            Keyboard.release(MODIFIERKEY_GUI);
+          } else { // Fallback to Layer 0 action
+            Keyboard.release('v');
+            Keyboard.release(MODIFIERKEY_CTRL);
+          }
+        }
+        break;
+
+      case LEFT_NEAR_EDGE: // This button has NO Layer 1 override
+        if (button[i].fell()) {
+          // No layer check needed, this is the default action
+          Keyboard.press(MODIFIERKEY_CTRL);
+          Keyboard.press('c');
+        } else if (button[i].rose()) {
+          Keyboard.release('c');
+          Keyboard.release(MODIFIERKEY_CTRL);
+        }
+        break;
+
+    }
+  }
+
 }
 
 // updates cpi avoid using this function within SPI transactions like motion burst
@@ -270,25 +357,22 @@ void update_usb()
 // Sets up all the buttons and the sensor
 void setup()
 {
-  // Mouse buttons
-  pinMode(M1_NO, INPUT_PULLUP);
-  pinMode(M1_NC, INPUT_PULLUP);
-  pinMode(M2_NO, INPUT_PULLUP);
-  pinMode(M2_NC, INPUT_PULLUP);
-  pinMode(M3_NO, INPUT_PULLUP);
-  pinMode(M3_NC, INPUT_PULLUP);
-  pinMode(M4_NO, INPUT_PULLUP);
-  pinMode(M4_NC, INPUT_PULLUP);
-  pinMode(M4_NO, INPUT_PULLUP);
-  pinMode(M4_NC, INPUT_PULLUP);
-  pinMode(M5_NO, INPUT_PULLUP);
-  pinMode(M5_NC, INPUT_PULLUP);
-  pinMode(MC_NO, INPUT_PULLUP);
-  pinMode(MC_NC, INPUT_PULLUP);
+
+  pinMode(LAYER_SWITCH_PIN, INPUT_PULLUP);
+  layerSwitchButton.attach(LAYER_SWITCH_PIN);
+  layerSwitchButton.interval(5);
+
+  for (int i = 0; i < NUM_BUTTONS; i++) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+    button[i].attach(buttonPins[i]);
+    button[i].interval(5);
+  }
+  
 
   // Scroll wheel
   pinMode(MS_0, INPUT_PULLUP);
   pinMode(MS_1, INPUT_PULLUP);
+
 
   Serial.println("Starting PMW");
   while (!begin_PMW()) Serial.println("Problem starting PMW");
@@ -303,11 +387,16 @@ void setup()
   set_CPI      (6400);
   write_reg_PMW(REG_Motion_Burst, 0x00);
   SPI.endTransaction();
+
+  
+  Keyboard.begin();
+  Mouse.begin();
+  Serial.begin(115200);
 }
 
 // Gathers mouse data and sends it over the USB
-void loop()
-{
+void loop(){
+
   //check if there is new motion data from interrupt pin
   if (!digitalReadFast(PMW_MOTION))
   {
