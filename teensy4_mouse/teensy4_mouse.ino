@@ -19,11 +19,11 @@ Work In Progress
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
 #include "teensy4_mouse.h"
 #include "srom_3389.h"
 #include <SPI.h>
-#include <Bounce2.h>
+// MERGED: Include the Adafruit MCP23X17 library
+#include <Adafruit_MCP23X17.h>
 
 // PMW3360 datasheet mentions a max of 2MHz for the SPI clock however up to 36Mhz seems to work fine for me
 // Very small benefit increasing this speed beyond 2MHz to decrease transaction times sensor FPS is still limited to 12000 FPS
@@ -38,32 +38,42 @@ Work In Progress
 #define BURST_READ_TIME (TSRAD_MOTION_BURST + 5) + 8 * (1000000.0 / (SPI_BUS_SPEED)) * (12 + 1)
 
 
-const int NUM_LAYERS = 2;
-const int NUM_BUTTONS = 14; // Corrected to match your defined buttons,
-const int LAYER_SWITCH_PIN = 6; // Pin for RIGHT_EDGE (the layer key)
-
-Bounce layerSwitchButton = Bounce();
-Bounce button[NUM_BUTTONS];
-int currentLayer = 0;
-
-const int buttonPins[NUM_BUTTONS] = {
- 
-  0, // LEFT_FAR_EDGE
-  1, // LEFT_NEAR_EDGE
-  2, // LEFT_TIP
-  3, // RIGHT_TIP
-  4, // LEFT_PUSH_TRIGGER
-  5, // RIGHT_PUSH_TRIGGER
-  
-  33, //M1_NO
-  34, //M1_NC
-  35, //M2_NO
-  36, //M2_NC
-  37, //M3_NO
-  38, //M3_NC
-  39, //M4_NO
-  40, //M5_NC
+const char* const buttonNames[32] PROGMEM = {
+"FAR_EDGE"            ,
+"NEAR_EDGE"           ,
+"RIGHT_EDGE"          ,
+"LEFT_TIP"            ,
+"RIGHT_TIP"           ,
+"LEFT_PUSH_TRIGGER"   ,
+"RIGHT_PUSH_TRIGGER"  ,
+"LEFT_PULL_TRIGGER"   ,
+"RIGHT_PULL_TRIGGER"  ,
+"FAR_WING"            ,
+"MID_WING"            ,
+"NEAR_WING"           ,
+"FAR_DPI"             ,
+"MID_DPI"             ,
+"NEAR_DPI"            ,
+"GRID_TOP_LEFT"       ,
+"GRID_LEFT"           ,
+"GRID_BOT_LEFT"       ,
+"GRID_BOT"            ,
+"GRID_BOT_RIGHT"      ,
+"GRID_RIGHT"          ,
+"GRID_FAR_TOP"        ,
+"GRID_FAR_BOT"        ,
+"UNUSED_23"           ,
+"UNUSED_24"           ,
+"UNUSED_25"           ,
+"UNUSED_26"           ,
+"UNUSED_27"           ,
+"UNUSED_28"           ,
+"UNUSED_29"           ,
+"UNUSED_30"           , 
+"UNUSED_31"
 };
+
+
 
 static elapsedMicros burst_timer  = 0;
 static elapsedMicros polling_rate = 0;
@@ -79,14 +89,17 @@ static uint16_t cpi[6]                  = {400, 800, 1600, 2000, 3200, 6400};
 static uint8_t  cpi_index               = 5;
 static bool     cpi_pressed             = false;
 static uint16_t set_rate                = 125;
-
-
 // Use the formula 1000000 / set_rate = polling rate to get the polling rate
 // Note: this timer is seperate from the USB timer but it effectivly limits the polling rate
 // Note: at lower polling rates (1000Hz and lower) it is recommended to use 16 bit x and y values to not hit the 8 bit limit
 // USB_mouse_move is by default limited to 8 bit values see my github for a fix
-// Note: polling rate can be "properly" limited by setting a divider (8000 / divider = polling rate or 1000 / divider = polling rate depending on interface) 
+// Note: polling rate can be "properly" limited by setting a divider (8000 / divider = polling rate or 1000 / divider = polling rate depending on interface)
 // This divider can be set in the teensy core files but not sure yet if you can adjust it somewhere during runtime (usb_desc.h -> MOUSE_INTERVAL)
+
+// MERGED: Create two Adafruit_MCP23X17 objects
+Adafruit_MCP23X17 mcp1;
+Adafruit_MCP23X17 mcp2;
+static bool g_shift_active = false; // Tracks the state of our G-Shift modifier key
 
 // Writes to a register on the PMW3360
 void write_reg_PMW(uint8_t reg, uint8_t value)
@@ -265,62 +278,6 @@ void update_buttons()
     if (!digitalReadFast(MC_NO) && digitalReadFast(MC_NC)) buttons |= 0b00100000;
     if (!digitalReadFast(MC_NC) && digitalReadFast(MC_NO)) buttons &= 0b11011111;
   }
-
-layerSwitchButton.update();
-  for (int i = 0; i < NUM_BUTTONS; i++) {
-    button[i].update();
-  }
-
- if (layerSwitchButton.read() == LOW) {
-    currentLayer = 1;
-    Serial.print("Switched to Layer: "); // Optional debug message
-    Serial.println(currentLayer);
-  } else {
-    currentLayer = 0;
-    Serial.print("Switched to Layer: "); // Optional debug message
-    Serial.println(currentLayer);
-  }
-
-  for (int i = 0; i < NUM_BUTTONS; i++) {
-    switch (i) {
-
-      // --- Stateful "Hold-Down" Buttons ---
-      case LEFT_FAR_EDGE: // This button has a Layer 1 override
-        if (button[i].fell()) { // On PRESS
-          // Check for the override layer first
-          if (currentLayer == 1) { // <-- CHANGE HERE
-            Keyboard.press(MODIFIERKEY_GUI);
-            Keyboard.press('v');
-          } else { // Fallback to Layer 0 action
-            Keyboard.press(MODIFIERKEY_CTRL);
-            Keyboard.press('v');
-          }
-        } else if (button[i].rose()) { // On RELEASE
-          // Same logic for release
-          if (currentLayer == 1) { // <-- CHANGE HERE
-            Keyboard.release('v');
-            Keyboard.release(MODIFIERKEY_GUI);
-          } else { // Fallback to Layer 0 action
-            Keyboard.release('v');
-            Keyboard.release(MODIFIERKEY_CTRL);
-          }
-        }
-        break;
-
-      case LEFT_NEAR_EDGE: // This button has NO Layer 1 override
-        if (button[i].fell()) {
-          // No layer check needed, this is the default action
-          Keyboard.press(MODIFIERKEY_CTRL);
-          Keyboard.press('c');
-        } else if (button[i].rose()) {
-          Keyboard.release('c');
-          Keyboard.release(MODIFIERKEY_CTRL);
-        }
-        break;
-
-    }
-  }
-
 }
 
 // updates cpi avoid using this function within SPI transactions like motion burst
@@ -354,24 +311,248 @@ void update_usb()
   y = 0;
 }
 
+// MERGED: Function to read buttons from both MCP23017 expanders
+// This function now detects both press and release events.
+void update_mcp_buttons() {
+  static uint32_t previous_states = 0xFFFFFFFF;
+  uint32_t current_states = 0;
+
+  // Read the current state of all 32 buttons efficiently
+  uint16_t states_mcp1 = mcp1.readGPIOAB();
+  uint16_t states_mcp2 = mcp2.readGPIOAB();
+  current_states = states_mcp1 | (uint32_t)states_mcp2 << 16;
+
+  // Compare current states with previous states to find changes
+  for (uint8_t i = 0; i < 32; i++) {
+    bool current_state = (current_states >> i) & 1;
+    bool previous_state = (previous_states >> i) & 1;
+
+    // --- Key Press Event (was released, is now pressed) ---
+    if (previous_state == HIGH && current_state == LOW) {
+      Serial.print(buttonNames[i]);
+      Serial.println(" pressed");
+
+      switch (i) {
+        // --- MACROS ---
+        case FAR_EDGE: // Copy (Ctrl+C)
+          Keyboard.press(MODIFIERKEY_CTRL);
+          Keyboard.press(KEY_C);
+          break;
+        case NEAR_EDGE: // Paste (Ctrl+V)
+          Keyboard.press(MODIFIERKEY_CTRL);
+          Keyboard.press(KEY_V);
+          break;
+
+        // --- MODIFIER KEYS ---
+        case RIGHT_EDGE: // This is our G-Shift key
+          g_shift_active = true;
+          Serial.println("G-SHIFT ON");
+          break;
+        case RIGHT_TIP:
+          Keyboard.press(MODIFIERKEY_CTRL);
+          break;
+        case LEFT_PUSH_TRIGGER:
+          Keyboard.press(MODIFIERKEY_ALT);
+          break;
+        case RIGHT_PUSH_TRIGGER:
+          Keyboard.press(MODIFIERKEY_SHIFT);
+          break;
+
+        // --- SINGLE KEY PRESSES ---
+        case LEFT_TIP:
+          Keyboard.press(KEY_ENTER);
+          break;
+        case LEFT_PULL_TRIGGER:
+          Keyboard.press(KEY_BACKSPACE);
+          break;
+        case RIGHT_PULL_TRIGGER:
+          Keyboard.press(KEY_DELETE);
+          break;
+        case NEAR_DPI:
+          Keyboard.press(KEY_PRINTSCREEN);
+          break;
+        case GRID_TOP_LEFT:
+          Keyboard.press(KEY_ENTER);
+          break;
+
+        // --- Unassigned keys with G-Shift layer ---
+        case FAR_WING:
+          Keyboard.press(g_shift_active ? KEY_1 : KEY_A);
+          break;
+        case MID_WING:
+          Keyboard.press(g_shift_active ? KEY_2 : KEY_B);
+          break;
+        case NEAR_WING:
+          Keyboard.press(g_shift_active ? KEY_3 : KEY_C);
+          break;
+        case FAR_DPI:
+          Keyboard.press(g_shift_active ? KEY_4 : KEY_D);
+          break;
+        case MID_DPI:
+          Keyboard.press(g_shift_active ? KEY_5 : KEY_E);
+          break;
+        case GRID_LEFT:
+          Keyboard.press(g_shift_active ? KEY_6 : KEY_F);
+          break;
+        case GRID_BOT_LEFT:
+          Keyboard.press(g_shift_active ? KEY_7 : KEY_G);
+          break;
+        case GRID_BOT:
+          Keyboard.press(g_shift_active ? KEY_8 : KEY_H);
+          break;
+        case GRID_BOT_RIGHT:
+          Keyboard.press(g_shift_active ? KEY_9 : KEY_I);
+          break;
+        case GRID_RIGHT:
+          Keyboard.press(g_shift_active ? KEY_0 : KEY_J);
+          break;
+        case GRID_FAR_TOP:
+          Keyboard.press(g_shift_active ? KEY_MINUS : KEY_K);
+          break;
+        case GRID_FAR_BOT:
+          Keyboard.press(g_shift_active ? KEY_EQUAL : KEY_L);
+          break;
+      }
+    }
+    // --- Key Release Event (was pressed, is now released) ---
+    else if (previous_state == LOW && current_state == HIGH) {
+      Serial.print(buttonNames[i]);
+      Serial.println(" released");
+
+      switch (i) {
+        // --- MACROS (release in reverse order) ---
+        case FAR_EDGE: // Release Copy
+          Keyboard.release(KEY_C);
+          Keyboard.release(MODIFIERKEY_CTRL);
+          break;
+        case NEAR_EDGE: // Release Paste
+          Keyboard.release(KEY_V);
+          Keyboard.release(MODIFIERKEY_CTRL);
+          break;
+
+        // --- MODIFIER KEYS ---
+        case RIGHT_EDGE: // G-Shift key
+          g_shift_active = false;
+          Serial.println("G-SHIFT OFF");
+          break;
+        case RIGHT_TIP:
+          Keyboard.release(MODIFIERKEY_CTRL);
+          break;
+        case LEFT_PUSH_TRIGGER:
+          Keyboard.release(MODIFIERKEY_ALT);
+          break;
+        case RIGHT_PUSH_TRIGGER:
+          Keyboard.release(MODIFIERKEY_SHIFT);
+          break;
+
+        // --- SINGLE KEY PRESSES ---
+        case LEFT_TIP:
+          Keyboard.release(KEY_ENTER);
+          break;
+        case LEFT_PULL_TRIGGER:
+          Keyboard.release(KEY_BACKSPACE);
+          break;
+        case RIGHT_PULL_TRIGGER:
+          Keyboard.release(KEY_DELETE);
+          break;
+        case NEAR_DPI:
+          Keyboard.release(KEY_PRINTSCREEN);
+          break;
+        case GRID_TOP_LEFT:
+          Keyboard.release(KEY_ENTER);
+          break;
+          
+        // --- Unassigned keys with G-Shift layer ---
+        case FAR_WING:
+          Keyboard.release(g_shift_active ? KEY_1 : KEY_A);
+          break;
+        case MID_WING:
+          Keyboard.release(g_shift_active ? KEY_2 : KEY_B);
+          break;
+        case NEAR_WING:
+          Keyboard.release(g_shift_active ? KEY_3 : KEY_C);
+          break;
+        case FAR_DPI:
+          Keyboard.release(g_shift_active ? KEY_4 : KEY_D);
+          break;
+        case MID_DPI:
+          Keyboard.release(g_shift_active ? KEY_5 : KEY_E);
+          break;
+        case GRID_LEFT:
+          Keyboard.release(g_shift_active ? KEY_6 : KEY_F);
+          break;
+        case GRID_BOT_LEFT:
+          Keyboard.release(g_shift_active ? KEY_7 : KEY_G);
+          break;
+        case GRID_BOT:
+          Keyboard.release(g_shift_active ? KEY_8 : KEY_H);
+          break;
+        case GRID_BOT_RIGHT:
+          Keyboard.release(g_shift_active ? KEY_9 : KEY_I);
+          break;
+        case GRID_RIGHT:
+          Keyboard.release(g_shift_active ? KEY_0 : KEY_J);
+          break;
+        case GRID_FAR_TOP:
+          Keyboard.release(g_shift_active ? KEY_MINUS : KEY_K);
+          break;
+        case GRID_FAR_BOT:
+          Keyboard.release(g_shift_active ? KEY_EQUAL : KEY_L);
+          break;
+      }
+    }
+  }
+
+  // Save the current states for the next loop iteration
+  previous_states = current_states;
+}
+
+
 // Sets up all the buttons and the sensor
 void setup()
 {
-
-  pinMode(LAYER_SWITCH_PIN, INPUT_PULLUP);
-  layerSwitchButton.attach(LAYER_SWITCH_PIN);
-  layerSwitchButton.interval(5);
-
-  for (int i = 0; i < NUM_BUTTONS; i++) {
-    pinMode(buttonPins[i], INPUT_PULLUP);
-    button[i].attach(buttonPins[i]);
-    button[i].interval(5);
-  }
-  
+  // Mouse buttons
+  pinMode(M1_NO, INPUT_PULLUP);
+  pinMode(M1_NC, INPUT_PULLUP);
+  pinMode(M2_NO, INPUT_PULLUP);
+  pinMode(M2_NC, INPUT_PULLUP);
+  pinMode(M3_NO, INPUT_PULLUP);
+  pinMode(M3_NC, INPUT_PULLUP);
+  pinMode(M4_NO, INPUT_PULLUP);
+  pinMode(M4_NC, INPUT_PULLUP);
+  pinMode(M4_NO, INPUT_PULLUP);
+  pinMode(M4_NC, INPUT_PULLUP);
+  pinMode(M5_NO, INPUT_PULLUP);
+  pinMode(M5_NC, INPUT_PULLUP);
+  pinMode(MC_NO, INPUT_PULLUP);
+  pinMode(MC_NC, INPUT_PULLUP);
 
   // Scroll wheel
   pinMode(MS_0, INPUT_PULLUP);
   pinMode(MS_1, INPUT_PULLUP);
+
+  Serial.begin(115200);
+  //while(!Serial); // Optional: wait for serial monitor to open
+
+  // MERGED: Initialize the MCP23017s
+  Serial.println("MCP23xxx Button Test!");
+  if (!mcp1.begin_I2C(0x20)) {
+    Serial.println("Error with MCP1.");
+    while (1);
+  }
+   if (!mcp2.begin_I2C(0x22)) {
+    Serial.println("Error with MCP2.");
+    while (1);
+  }
+
+  // MERGED: Configure all pins on both MCPs as inputs with pull-up resistors
+  for (uint8_t i = 0; i < 16; i++) {
+    mcp1.pinMode(i, INPUT_PULLUP);
+  }
+  for (uint8_t i = 0; i < 16; i++) {
+    mcp2.pinMode(i, INPUT_PULLUP);
+  }
+  Serial.println("MCP INIT DONE");
 
 
   Serial.println("Starting PMW");
@@ -387,15 +568,13 @@ void setup()
   set_CPI      (6400);
   write_reg_PMW(REG_Motion_Burst, 0x00);
   SPI.endTransaction();
-
-  
-  Keyboard.begin();
-  Mouse.begin();
-  Serial.begin(115200);
 }
 
 // Gathers mouse data and sends it over the USB
-void loop(){
+void loop()
+{
+  // MERGED: Call the function to read buttons from the MCP expanders
+  update_mcp_buttons();
 
   //check if there is new motion data from interrupt pin
   if (!digitalReadFast(PMW_MOTION))
